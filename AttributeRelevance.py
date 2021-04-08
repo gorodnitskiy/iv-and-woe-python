@@ -15,7 +15,7 @@ class AttributeRelevance:
             rot=-.75,
             reverse=True)
 
-    def bulk_iv(self, feats, iv, cond, woe_extremes=False):
+    def bulk_iv(self, feats, iv, cond=None, woe_extremes=False):
         iv_dict = {}
         for f in feats:
             iv_df, iv_value = iv.calculate_iv(f, cond)
@@ -31,7 +31,7 @@ class AttributeRelevance:
         df = pd.DataFrame.from_dict(iv_dict, orient='index', columns=cols)
         return df
 
-    def bulk_stats(self, feats, s, cond):
+    def bulk_stats(self, feats, s, cond=None):
         stats_dict = {}
         for f in feats:
             p_value, effect_size = s.calculate_chi(f, cond)
@@ -40,7 +40,7 @@ class AttributeRelevance:
             stats_dict, orient='index', columns=['p-value', 'effect_size'])
         return df
 
-    def analyze(self, feats, iv, cond, s=None, interpretation=False):
+    def analyze(self, feats, iv, cond=None, s=None, interpretation=False):
         df_iv = self.bulk_iv(feats, iv, cond) \
             .sort_values(by='iv', ascending=False)
         if s is not None:
@@ -53,7 +53,7 @@ class AttributeRelevance:
                     df_iv['effect_size'].apply(s.interpretation)
         return df_iv
 
-    def draw_iv(self, feats, iv, cond):
+    def draw_iv(self, feats, iv, cond=None):
         df = self.analyze(feats, iv, cond)
         fig, ax = plt.subplots(figsize=(10, 6))
         sns.barplot(
@@ -65,7 +65,7 @@ class AttributeRelevance:
         plt.xticks(rotation=90)
         plt.show()
 
-    def draw_woe_extremes(self, feats, iv, cond):
+    def draw_woe_extremes(self, feats, iv, cond=None):
         df = self.bulk_iv(feats, iv, cond, woe_extremes=True).sort_values(
             by='iv', ascending=False)
         fig, ax = plt.subplots(figsize=(10, 6))
@@ -85,7 +85,7 @@ class AttributeRelevance:
         plt.xticks(rotation=90)
         plt.show()
 
-    def draw_woe_multiplot(self, feats, iv, cond):
+    def draw_woe_multiplot(self, feats, iv, cond=None):
         n = len(feats)
         nrows = int(np.ceil(n/3))
         fig, ax = plt.subplots(nrows=nrows, ncols=3, figsize=(15, nrows*4))
@@ -114,7 +114,7 @@ class Analysis:
             rot=-.75,
             reverse=True)
 
-    def group_by_feature(self, feat, cond):
+    def group_by_feature(self, feat, cond=None):
         if cond:
             df = feat.df_lite[cond]
         else:
@@ -129,7 +129,7 @@ class Analysis:
 
 
 class StatsSignificance(Analysis):
-    def calculate_chi(self, feat, cond):
+    def calculate_chi(self, feat, cond=None):
         df = self.group_by_feature(feat, cond)
         df_chi = np.array(df[['good', 'bad']])
         n = df['count'].sum()
@@ -152,11 +152,11 @@ class StatsSignificance(Analysis):
         else:
             return 'very strong'
 
-    def interpret_chi(self, feat, cond):
+    def interpret_chi(self, feat, cond=None):
         _, cramers_v = self.calculate_chi(feat, cond)
         return self.interpretation(cramers_v)
 
-    def print_chi(self, feat, cond):
+    def print_chi(self, feat, cond=None):
         p_value, cramers_v = self.calculate_chi(feat, cond)
         print('P-value: %0.2f\nEffect size: %0.2f' % (p_value, cramers_v))
         print('%s is a %s predictor' % (
@@ -168,25 +168,25 @@ class IV(Analysis):
     def __perc_share__(df, group_name):
         return df[group_name] / df[group_name].sum()
 
-    def __calculate_perc_share__(self, feat, cond):
+    def __calculate_perc_share__(self, feat, cond=None):
         df = self.group_by_feature(feat, cond)
         df['perc_good'] = self.__perc_share__(df, 'good')
         df['perc_bad'] = self.__perc_share__(df, 'bad')
         df['perc_diff'] = df['perc_good'] - df['perc_bad']
         return df
 
-    def __calculate_woe__(self, feat, cond):
+    def __calculate_woe__(self, feat, cond=None):
         df = self.__calculate_perc_share__(feat, cond)
         df['woe'] = np.log(df['perc_good']/df['perc_bad'])
         df['woe'] = df['woe'].replace([np.inf, -np.inf], np.nan).fillna(0)
         return df
 
-    def calculate_iv(self, feat, cond):
+    def calculate_iv(self, feat, cond=None):
         df = self.__calculate_woe__(feat, cond)
         df['iv'] = df['perc_diff'] * df['woe']
         return df, df['iv'].sum()
 
-    def draw_woe(self, feat, cond):
+    def draw_woe(self, feat, cond=None):
         iv_df, iv_value = self.calculate_iv(feat, cond)
         fig, ax = plt.subplots(figsize=(10, 6))
         sns.barplot(
@@ -211,11 +211,11 @@ class IV(Analysis):
         else:
             return 'suspicious'
 
-    def interpret_iv(self, feat, cond):
+    def interpret_iv(self, feat, cond=None):
         _, iv = self.calculate_iv(feat, cond)
         return self.interpretation(iv)
 
-    def print_iv(self, feat, cond):
+    def print_iv(self, feat, cond=None):
         _, iv = self.calculate_iv(feat, cond)
         print('Information value: %0.2f' % iv)
         print('%s is a %s predictor' % (
